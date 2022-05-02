@@ -21,61 +21,6 @@ public enum Formula: String {
     case qtcFrd  // Fridericia
     case qtcFrm  // Framingham
     case qtcHdg  // Hodges
-    case qtcRtha // Rautaharju (2014) QTcMod
-    case qtcRthb // Rautaharju (2014) QTcLogLin
-    case qtcMyd  // Mayeda
-    case qtcArr  // Arrowood
-    case qtcKwt  // Kawataki
-    case qtcDmt  // Dimitrienko
-    case qtcYos  // Yoshinaga
-    case qtcAdm  // Adams
-    case qtcGot  // Goto
-    case qtcRbk  // Rabkin
-    case qtcTest // for testing only
-    
-    // QTp formulas
-    case qtpBzt  // Bazett
-    case qtpFrd  // Fridericia
-    case qtpArr  // Arrowood
-    case qtpBdl  // Boudoulas (note Rabkin has qtcBRL -- typo?)
-    case qtpAsh  // Ashman
-    case qtpHdg  // Hodges
-    case qtpMyd  // Mayeda
-    case qtpKrj  // Karjalainen
-    case qtpSch  // Schlamowitz
-    case qtpAdm  // Adams
-    case qtpSmn  // Simonson
-    case qtpKwt  // Kawataki
-    case qtpScl  // Schlomka
-    case qtpMrr  // Merri
-    case qtpHgg  // Hegglin
-    case qtpGot  // Goto
-    case qtpKlg  // Kligfield
-    case qtpShp  // Shipley
-    case qtpWhl  // Wohlfart
-    case qtpSrm  // Sarma
-    case qtpLcc  // Lecocq
-    case qtpRbk  // Rablin
-
-    /// A formula is either a QTc or QTp
-    /// - returns: a FormulaType (QTc or QTp)
-    public func formulaType() -> FormulaType {
-        let qtcFormulas: Set<Formula> = [.qtcBzt, .qtcFrd, .qtcFrm, .qtcHdg, .qtcRtha, .qtcRthb, .qtcMyd, .qtcArr, .qtcKwt, .qtcDmt, .qtcYos, .qtcAdm, .qtcGot, .qtcRbk]
-        let qtpFormulas: Set<Formula> = [.qtpBzt, .qtpFrd, .qtpArr, .qtpBdl, .qtpAsh, .qtpHdg, .qtpMyd, .qtpKrj, .qtpSch, .qtpAdm, .qtpSmn, .qtpKwt, .qtpScl, .qtpMrr, .qtpHgg, .qtpGot, .qtpKlg, .qtpShp, .qtpWhl, .qtpSrm, .qtpLcc, .qtpRbk]
-        if qtcFormulas.contains(self) {
-            return .qtc
-        } else if qtpFormulas.contains(self) {
-            return .qtp
-        } else {
-            fatalError("Undefined formula")
-        }
-    }
-}
-
-/// indicates whether a Formula is a QTc or QTp
-public enum FormulaType {
-    case qtc
-    case qtp
 }
 
 
@@ -126,7 +71,6 @@ public typealias Msec = Double
 public typealias Sec = Double
 
 typealias QTcEquation = (_ qt: Double, _ rr: Double, _ sex: Sex, _ age: Age) throws -> Double
-typealias QTpEquation = (_ rr: Double, Sex, Age) throws -> Double
 
 /// For backward compatibility
 public typealias BaseCalculator = Calculator
@@ -319,127 +263,9 @@ public class QTcCalculator: Calculator {
     
 }
 
-/// Class containing all aspects of a QTp calculator.
-public class QTpCalculator: Calculator {
-    let baseEquation: QTpEquation
-    
-    /**
-     Construct a QTpCalculator.
-
-     - Parameters:
-         - formula: one of enum Formula
-         - longName: generally first author's name
-         - shortName: name in form QTpXXX
-         - reference: literature reference in AMA format
-         - equation: equation in String form, usually in original format as presented in reference or normalized for sec units
-         - baseEquation: a closure in the form of QTpEquation, the mathematic formula normalized for units of sec
-         - classification: one of FormulaClassification
-         - forAdults: the study population was not pediatric only.  Probably will be deprecated.  Defaults to true.
-         - notes: information from the reference on the formula.  Defaults to nil.
-         - publicationDate: year of publication as String.  Defaults to nil.
-         - numberOfSubjects: number of subjects in the study population. Defaults to nil.
-     */
-    init(formula: Formula, longName: String, shortName: String,
-                  reference: String, equation: String, baseEquation: @escaping QTpEquation,
-                  classification: FormulaClassification, forAdults: Bool = true, notes: String = "", publicationDate: String?  = nil, numberOfSubjects: Int? = nil) {
-        self.baseEquation = baseEquation
-        super.init(longName: longName, shortName: shortName,
-                   reference: reference, equation: equation,
-                   classification: classification,
-                   notes: notes, publicationDate: publicationDate,
-                   numberOfSubjects: numberOfSubjects)
-        self.formula = formula
-    }
-    
-    /**
-     Calculate QTp using RR interval in sec
-
-     - Parameters:
-         - rrInSec: RR interval in sec
-         - sex: Sex defaults to .unspecified
-         - age: as Int? defaults to nil
-     - Returns: QTp in sec
-     - Throws: a CalculationError
-     */
-    public func calculate(rrInSec: Double, sex: Sex = .unspecified, age: Age = nil) throws -> Sec {
-        return try baseEquation(rrInSec, sex, age)
-    }
-    
-    /**
-     Calculate QTp using RR interval in msec
-
-     - Parameters:
-         - rrInMsec: RR interval in msec
-         - sex: Sex defaults to .unspecified
-         - age: as Int? defaults to nil
-     - Returns: QTp in msec
-     - Throws: a CalculationError
-     */
-    public func calculate(rrInMsec: Double, sex: Sex = .unspecified, age: Age = nil) throws -> Msec {
-        return try QTc.qtpConvert(baseEquation, rrInMsec: rrInMsec, sex: sex, age: age)
-    }
-    
-    /**
-     Calculate QTp using heart rate
-
-     - Parameters:
-     - rate: heart rate in beats per min
-     - sex: Sex defaults to .unspecified
-     - age: as Int? defaults to nil
-     - Returns: QTp in sec
-     - Throws: a CalculationError
-     */
-    public func calculate(rate: Double, sex: Sex = .unspecified, age: Age = nil) throws -> Sec {
-        return try QTc.qtpConvert(baseEquation, rate: rate, sex: sex, age: age)
-    }
-    
-    /**
-     Calculate QTc using a QtMeasurement
-
-     - Parameters:
-     - qtMeasurement: the intervals being measured
-     - Returns: QTp in msec or sec, depending on QTMeasurement paramters
-     - Throws: a CalculationError
-
-     */
-    override public func calculate(qtMeasurement: QtMeasurement) throws -> Double {
-        return try calculate(intervalRate: qtMeasurement.intervalRate,
-                             intervalRateType: qtMeasurement.intervalRateType, sex: qtMeasurement.sex,
-                             age: qtMeasurement.age, units: qtMeasurement.units)
-    }
-    
-    func calculate(intervalRate: Double, intervalRateType: IntervalRateType,
-                   sex: Sex, age: Age, units: Units) throws -> Double {
-        var result: Double
-        switch units {
-        case .msec:
-            if intervalRateType == .interval {
-                result = try calculate(rrInMsec: intervalRate, sex: sex, age: age)
-            }
-            else {
-                result = try calculate(rate: intervalRate, sex: sex, age: age)
-                // be true to the units passed, and return result in msec
-                result = QTc.secToMsec(result)
-            }
-        case .sec:
-            if intervalRateType == .interval {
-                result = try calculate(rrInSec: intervalRate, sex: sex, age: age)
-            }
-            else {
-                result = try calculate(rate: intervalRate, sex: sex, age: age)
-            }
-        }
-        return result
-    }
-}
-
 // These are protocols that the formula source must adhere to.
 protocol QTcFormulaSource {
     static func qtcCalculator(formula: Formula) -> QTcCalculator
-}
-
-protocol QTpFormulaSource {
-    static func qtpCalculator(formula: Formula) -> QTpCalculator
 }
 
 /// The QTc class provides static functions:
@@ -487,10 +313,6 @@ public class QTc {
         return T.qtcCalculator(formula: formula)
     }
     
-    static func qtpCalculator<T: QTpFormulaSource>(formulaSource: T.Type, formula: Formula) -> QTpCalculator {
-        return T.qtpCalculator(formula: formula)
-    }
-    
 
     /**
      QTc Factory.
@@ -508,62 +330,7 @@ public class QTc {
         return qtcCalculator(formulaSource: Formulas.self, formula: formula)
     }
     
-    /**
-     QTp Factory.
 
-     These are used like this:
-
-         let qtpBztCalculator = QTc.qtpCalculator(formula: .qtpBzt)
-         let qtp = qtpBztCalculator.calculate(rrInSec: rr)
-
-     - Parameters:
-         - formula: a QTp Formula
-     - Returns: a QTpCalculator
-     */
-    public static func qtpCalculator(formula: Formula) -> QTpCalculator {
-        return qtpCalculator(formulaSource: Formulas.self, formula: formula)
-    }
-    
-    
-    /**
-     Calculator Factory.  Will return a QTcCalculator or QTpCalculator
-     depending on the parameters.
-
-     - Parameters:
-         - formula: a QTc Formula or QTp Formula
-         - formulaType: whether it is a QTc or QTp Formula
-     - Returns: a QTcCalculator or QTpCalculator, depending on formulaType
-     */
-    public static func calculator(formula: Formula, formulaType: FormulaType) -> Calculator {
-        switch formulaType {
-        case .qtc:
-            return qtcCalculator(formula: formula)
-        case .qtp:
-            return qtpCalculator(formula: formula)
-        }
-    }
-    
-    /**
-     Calculator Factory.  Will return a QTcCalculator or QTpCalculator
-     depending on the formula parameter.  Infers correct Calculator to
-     return from the formula.  This is the easiest way to generate
-     a QTcCalculator or QTpCalculator.
-
-     Example:
-
-          let calculator = QTc.calculator(formula: .qtcBzt)
-          let measurement = QtMeasurement(.....)  // init a QtMeasurement struct
-          let result = calculator.calculate(measurement: measurement)
-
-
-     - Parameters:
-         - formula: a QTc Formula or QTp Formula
-     - Returns: a QTcCalculator or QTpCalculator, depending on formula
-     */
-    public static func calculator(formula: Formula) -> Calculator {
-        return calculator(formula: formula, formulaType: formula.formulaType())
-    }
-    
     // Convert from one set of units to another
     // QTc conversion
     fileprivate static func qtcConvert(_ qtcEquation: QTcEquation,
@@ -581,13 +348,5 @@ public class QTc {
         return secToMsec(try qtcEquation(msecToSec(qtInMsec), bpmToSec(rate), sex, age))
     }
    
-    // QTp conversion
-    fileprivate static func qtpConvert(_ qtpEquation: QTpEquation, rrInMsec: Double, sex: Sex, age: Age) throws -> Msec {
-        return secToMsec(try qtpEquation(msecToSec(rrInMsec), sex, age))
-    }
-    
-    fileprivate static func qtpConvert(_ qtpEquation: QTpEquation, rate: Double, sex: Sex, age: Age) throws -> Sec {
-        return try qtpEquation(bpmToSec(rate), sex, age)
-    }
 }
 
